@@ -41,7 +41,7 @@ void BSAController::initialize() {
   time_out_message = new BSMNotificationTimeout("bsm_notification_timeout");
   if (is_active) {
     long long photon_per_second = getParentModule()->getSubmodule("bsa")->par("photon_detection_per_second").intValue();
-    long long time_between_photon_in_atto = ((long long) 1000000000000000000) / photon_per_second;
+    long long time_between_photon_in_atto = ((long long)1000000000000000000) / photon_per_second;
     time_interval_between_photons = SimTime(time_between_photon_in_atto, SIMTIME_AS);
     simtime_t first_notification_timer = SimTime(par("initial_notification_timing_buffer").doubleValue());
     right_qnic = getExternalQNICInfoFromPort(1);
