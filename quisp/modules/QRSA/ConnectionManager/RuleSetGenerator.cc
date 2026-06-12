@@ -58,8 +58,12 @@ std::map<int, json> RuleSetGenerator::generateRuleSets(messages::ConnectionSetup
   // add tomography rules
   auto initiator_addr = path.front();
   ++shared_rule_tag;
-  rules_map[initiator_addr].emplace_back(tomographyRule(responder_addr, initiator_addr, num_measure, shared_rule_tag));
-  rules_map[responder_addr].emplace_back(tomographyRule(initiator_addr, responder_addr, num_measure, shared_rule_tag));
+  // rules_map[initiator_addr].emplace_back(tomographyRule(responder_addr, initiator_addr, num_measure, shared_rule_tag));
+  // rules_map[responder_addr].emplace_back(tomographyRule(initiator_addr, responder_addr, num_measure, shared_rule_tag));
+  
+  // Inject the QSDC Protocol instead of standard Tomography
+  rules_map[initiator_addr].emplace_back(qsdcEncodeRule(responder_addr, shared_rule_tag, 0));
+  rules_map[responder_addr].emplace_back(qsdcDecodeRule(initiator_addr, shared_rule_tag));
 
   std::map<int, json> rulesets{};
   // pack rules into RuleSets and serialize it as json
@@ -185,4 +189,36 @@ std::unique_ptr<Rule> RuleSetGenerator::swapCorrectionRule(int swapper_address, 
   correction_rule->setAction(std::move(action));
   return correction_rule;
 }
+
+std::unique_ptr<Rule> RuleSetGenerator::qsdcEncodeRule(int partner_address, int shared_rule_tag, int qsdc_data_id) {
+  auto encode_rule = std::make_unique<Rule>(partner_address, shared_rule_tag, qsdc_data_id);
+  encode_rule->setName("qsdc_encode"); 
+
+  auto condition = std::make_unique<Condition>();
+  // Require exactly 2 Bell pairs to trigger the QSDC Encoding action
+  auto enough_resource_clause = std::make_unique<EnoughResourceConditionClause>(2, partner_address);
+  condition->addClause(std::move(enough_resource_clause));
+  encode_rule->setCondition(std::move(condition));
+
+  auto encode_action = std::make_unique<QSDCEncode>(partner_address, shared_rule_tag, qsdc_data_id);
+  encode_rule->setAction(std::move(encode_action));
+
+  return encode_rule;
+}
+
+std::unique_ptr<Rule> RuleSetGenerator::qsdcDecodeRule(int partner_address, int shared_rule_tag) {
+  auto decode_rule = std::make_unique<Rule>(partner_address, shared_rule_tag, shared_rule_tag);
+  decode_rule->setName("qsdc_decode");
+
+  auto condition = std::make_unique<Condition>();
+  auto enough_resource_clause = std::make_unique<EnoughResourceConditionClause>(2, partner_address);
+  condition->addClause(std::move(enough_resource_clause));
+  decode_rule->setCondition(std::move(condition));
+
+  auto decode_action = std::make_unique<QSDCDecode>(partner_address, shared_rule_tag);
+  decode_rule->setAction(std::move(decode_action));
+
+  return decode_rule;
+}
+
 }  // namespace quisp::modules::ruleset_gen

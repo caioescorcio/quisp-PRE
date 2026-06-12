@@ -265,7 +265,12 @@ Program RuleSetConverter::constructAction(const ActionData *data) {
   if (auto *act = dynamic_cast<const SwappingCorrection *>(data)) {
     return constructSwappingCorrectionAction(act);
   }
-
+  if (auto *act = dynamic_cast<const QSDCEncode *>(data)) {
+    return constructQSDCEncodeAction(act);
+  }
+  if (auto *act = dynamic_cast<const QSDCDecode *>(data)) {
+    return constructQSDCDecodeAction(act);
+  }
   throw std::runtime_error("got invalid actions");
   return Program{"empty", {}};
 }
@@ -285,7 +290,7 @@ Program RuleSetConverter::constructEntanglementSwappingAction(const Entanglement
     GATE_CNOT q0 q1
     MEASURE pauli_op_left 0 q0 x
     MEASURE pauli_op_left 1 q1 z
-    FREE_QUBIT q0
+    FREE_QUBIT q0 
     FREE_QUBIT q1
     SEND_SWAPPING_RESULT left_partner right_partner pauli_op_left  seq_no
     SEND_SWAPPING_RESULT right_partner left_partner pauli_op_right seq_no
@@ -830,4 +835,17 @@ Program RuleSetConverter::constructTomographyAction(const Tomography *act) {
       },
   };
 }
+Program RuleSetConverter::constructQSDCEncodeAction(const QSDCEncode *act) {
+  std::vector<InstructionTypes> opcodes{  };
+  EV_INFO << "Node A compiled QSDC Encode. It will transmit a random secret!\n";
+  return Program{"QSDCEncode", opcodes};
+}
+
+Program RuleSetConverter::constructQSDCDecodeAction(const QSDCDecode *act) {
+  std::vector<InstructionTypes> opcodes{  };
+  EV_INFO << "Node B compiled QSDC Decode. It will transmit a random secret!\n";
+  return Program{"QSDCDecode", opcodes};
+}
+
+
 }  // namespace quisp::rules::rs_converter

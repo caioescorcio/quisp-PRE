@@ -106,4 +106,25 @@ class Tomography : public Action {
   void deserialize_json(json serialized) override;
 };
 
+class QSDCEncode : public Action {
+ public:
+  QSDCEncode(json serialized) { deserialize_json(serialized); }  // for deserialization
+  QSDCEncode(int partner_addr, int shared_rule_tag, int qsdc_data_id); 
+  
+  int shared_rule_tag;  // shared_rule_tag is used for the correct reference to the RuleEngine to associate messages to actions
+  int qsdc_data_id;
+  json serialize_json() override;
+  void deserialize_json(json serialized) override;
+}; 
+
+class QSDCDecode : public Action {
+ public:
+  QSDCDecode(json serialized) { deserialize_json(serialized); }  // for deserialization
+  QSDCDecode(int partner_addr, int shared_rule_tag); 
+  
+  int shared_rule_tag;
+  json serialize_json() override;
+  void deserialize_json(json serialized) override;
+};
+
 }  // namespace quisp::rules

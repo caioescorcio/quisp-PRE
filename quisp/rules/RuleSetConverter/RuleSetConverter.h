@@ -26,6 +26,8 @@ using rules::Purification;
 using rules::PurificationCorrelationClause;
 using rules::SwappingCorrectionClause;
 using rules::Tomography;
+using rules::QSDCEncode;
+using rules::QSDCDecode;
 
 // Runtime's RuleSet representation
 using quisp::runtime::Label;
@@ -52,5 +54,7 @@ class RuleSetConverter {
   static Program constructTomographyAction(const Tomography* data);
   static Program constructPurificationCorrelationAction(const PurificationCorrelation* data);
   static Program constructSwappingCorrectionAction(const SwappingCorrection* data);
+  static Program constructQSDCEncodeAction(const QSDCEncode* data);
+  static Program constructQSDCDecodeAction(const QSDCDecode* data);
 };
 }  // namespace quisp::rules::rs_converter

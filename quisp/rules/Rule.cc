@@ -56,6 +56,12 @@ void Rule::deserialize_json(json serialized) {
     } else if (action_name == "tomography") {
       auto tomography_action = std::make_unique<Tomography>(serialized_action);
       setAction(std::move(tomography_action));
+    } else if (action_name == "qsdc_encode") {
+      auto encode_action = std::make_unique<QSDCEncode>(serialized_action);
+      setAction(std::move(encode_action));
+    } else if (action_name == "qsdc_decode") {
+      auto decode_action = std::make_unique<QSDCDecode>(serialized_action);
+      setAction(std::move(decode_action));
     } else {
       throw omnetpp::cRuntimeError("No action type found");
     }

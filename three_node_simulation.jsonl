@@ -1,0 +1,4 @@
+{"simtime": 0.00005803323, "event_type": "QubitStateChange", "address": "100000", "qnic_type": 0, "qnic_index": 0, "qubit_index": 0, "busy": true, "allocated": false}
+{"simtime": 0.00005803323, "event_type": "QubitStateChange", "address": "0", "qnic_type": 0, "qnic_index": 0, "qubit_index": 0, "busy": true, "allocated": false}
+{"simtime": 0.00005803323, "event_type": "QubitStateChange", "address": "100001", "qnic_type": 0, "qnic_index": 0, "qubit_index": 0, "busy": true, "allocated": false}
+{"simtime": 0.00005803323, "event_type": "QubitStateChange", "address": "0", "qnic_type": 0, "qnic_index": 1, "qubit_index": 0, "busy": true, "allocated": false}

@@ -93,5 +93,8 @@ class RuleSetGenerator {
   std::unique_ptr<rules::Rule> swapCorrectionRule(int swapper_address, int shared_rule_tag);
 
   int responder_addr;
+
+  std::unique_ptr<rules::Rule> qsdcEncodeRule(int partner_address, int shared_rule_tag, int qsdc_data_id);
+  std::unique_ptr<rules::Rule> qsdcDecodeRule(int partner_address, int shared_rule_tag);
 };
 }  // namespace quisp::modules::ruleset_gen

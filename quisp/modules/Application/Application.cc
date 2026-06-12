@@ -80,15 +80,17 @@ void Application::handleMessage(cMessage *msg) {
     return;
   }
 
-  if (dynamic_cast<ConnectionSetupResponse *>(msg)) {
+
+if (dynamic_cast<ConnectionSetupResponse *>(msg)) {
     logger->logPacket("handleMessage", msg);
-    send(msg, "toRouter");
+    delete msg;  
     return;
   }
 
-  if (dynamic_cast<InternalRuleSetForwarding *>(msg)) {
+  if (dynamic_cast<InternalRuleSetForwarding *>(msg) || 
+      dynamic_cast<InternalRuleSetForwarding_Application *>(msg)) {
     logger->logPacket("handleMessage", msg);
-    send(msg, "toRouter");
+    delete msg;  
     return;
   }
 

@@ -118,4 +118,62 @@ void Tomography::deserialize_json(json serialized) {
     options["interface"].get_to(qnic_interfaces);
   }
 }
+
+// QSDC Actions
+
+// the functions that extract the JSON values passed in this sort of protocol (OMNet++)
+
+QSDCEncode::QSDCEncode(int partner_addr, int shared_rule_tag, int qsdc_data_id) 
+  : Action(partner_addr), shared_rule_tag(shared_rule_tag), qsdc_data_id(qsdc_data_id) {}
+
+json QSDCEncode::serialize_json() {
+  json QSDCEncode_json;
+  QSDCEncode_json["type"] = "qsdc_encode";
+  QSDCEncode_json["options"]["partner_address"] = partner_address; 
+  QSDCEncode_json["options"]["shared_rule_tag"] = shared_rule_tag;
+  QSDCEncode_json["options"]["interface"] = qnic_interfaces;
+  QSDCEncode_json["options"]["qsdc_data_id"] = qsdc_data_id; // Pass the "B1"'s ID to perform the operation.
+  return QSDCEncode_json;
+}
+
+void QSDCEncode::deserialize_json(json serialized) {
+  auto options = serialized["options"];
+  if (options != nullptr) {
+    options["partner_address"].get_to(partner_address); 
+    options["shared_rule_tag"].get_to(shared_rule_tag);
+    options["interface"].get_to(qnic_interfaces);
+    if (options.contains("qsdc_data_id")) {
+        options["qsdc_data_id"].get_to(qsdc_data_id);
+    }
+  }
+}
+
+// TODO: Override the run method where the RuleEngine passes the Two Qubits
+// cPacket* QSDCEncode::run(cModule* qnic, IStationaryQubit* qubit1, IStationaryQubit* qubit2) { ... }
+
+
+QSDCDecode::QSDCDecode(int partner_addr, int shared_rule_tag) 
+  : Action(partner_addr), shared_rule_tag(shared_rule_tag) {}
+
+json QSDCDecode::serialize_json() {
+  json QSDCDecode_json;
+  QSDCDecode_json["type"] = "qsdc_decode";
+  QSDCDecode_json["options"]["partner_address"] = partner_address;
+  QSDCDecode_json["options"]["shared_rule_tag"] = shared_rule_tag;
+  QSDCDecode_json["options"]["interface"] = qnic_interfaces;
+  return QSDCDecode_json;
+}
+
+void QSDCDecode::deserialize_json(json serialized) {
+  auto options = serialized["options"];
+  if (options != nullptr) {
+    options["partner_address"].get_to(partner_address);
+    options["shared_rule_tag"].get_to(shared_rule_tag);
+    options["interface"].get_to(qnic_interfaces);
+  }
+}
+
+// TODO: Override the run method for Carol's BSM
+// cPacket* QSDCDecode::run(cModule* qnic, IStationaryQubit* qubit1, IStationaryQubit* qubit2) { ... }
+
 }  // namespace quisp::rules
