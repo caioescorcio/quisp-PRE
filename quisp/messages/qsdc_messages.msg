@@ -10,7 +10,7 @@ packet QSDCBSMResult extends Header {
     int shared_rule_tag      @setter(setSharedRuleTag)     @getter(getSharedRuleTag);
 
     // Identifies the specific group of EPR pairs being used for this 2-bit chunk
-    int group_id             @setter(setGroupId)           @getter(getGroupId);
+    int sequence_num             @setter(setSequenceNum)           @getter(getSequenceNum);
     
     // Bob's Bell-basis measurement outcome on photons B1 and B2
     // Typically represented as an integer mapping to Phi+, Phi-, Psi+, Psi-
