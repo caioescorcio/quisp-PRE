@@ -358,11 +358,10 @@ void RuleEngine::handleQSDCBSMResult(QSDCBSMResult *result) {
 
   auto ruleset_id = result->getRulesetId();
   auto shared_rule_tag = result->getSharedRuleTag();
-  auto group_id = result->getGroupId();
   auto bsm_outcome = result->getBsmOutcome();
   auto src_addr = result->getSrcAddr();
 
-  std::vector<int> message_content = {group_id, bsm_outcome, src_addr};
+  std::vector<int> message_content = { bsm_outcome, src_addr};
   auto runtime = runtimes.findById(ruleset_id);
   if (runtime == nullptr) return;
   runtime->assignMessageToRuleSet(shared_rule_tag, message_content);
