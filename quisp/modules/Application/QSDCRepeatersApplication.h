@@ -139,8 +139,7 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     void handleIncomingPhotonAtRepeater(quisp::messages::PhotonicQubit* photon);
     void handleIncomingPhotonAtEndNode(quisp::messages::PhotonicQubit* photon);
     int eigenToInt(quisp::backends::abstract::EigenvalueResult r);
-    void forwardFlyingQubit(quisp::messages::PhotonicQubit* photon);
-    int determineEgressGate(int dest_addr);
+    
     // OMNeT specifics
     void initialize() override;
     void handleMessage(omnetpp::cMessage* msg) override;
