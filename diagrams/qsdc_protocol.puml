@@ -1,0 +1,46 @@
+@startuml
+participant Alice
+participant Server
+participant Bob
+
+note over Server
+QSDC_PREPARE
+end note
+
+Server -> Alice : QSDC_COMM_START
+Server -> Bob   : QSDC_COMM_START
+
+Alice -> Server : QSDC_COMM_READY
+Bob   -> Server : QSDC_COMM_READY
+
+note over Server
+Wait for both
+end note
+
+Server -> Alice : QSDC_COMM_SYNC
+Server -> Bob   : QSDC_COMM_SYNC
+
+loop For i = 0 to N-1
+    Server -> Alice : Qubit (Left)
+    Server -> Bob   : Qubit (Right)
+
+    note over Alice
+    Save Qubit[i]
+    end note
+
+    note over Bob
+    Save Qubit[i]
+    end note
+
+    Alice -> Server : QSDC_QUBIT_RECEIVED\n(index: i)
+    Bob   -> Server : QSDC_QUBIT_RECEIVED\n(index: i)
+
+    note over Server
+    Wait for both
+    end note
+end
+
+Server -> Alice : QSDC_COMM_END
+Server -> Bob   : QSDC_COMM_END
+
+@enduml
