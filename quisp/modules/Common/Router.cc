@@ -7,7 +7,7 @@
 #include "messages/BSA_ipc_messages_m.h"
 #include "messages/classical_messages.h"  //Path selection: type = 1, Timing notifier for BMA: type = 4
 #include "messages/link_generation_messages_m.h"
-
+#include "messages/qsdc_messages_m.h"
 using namespace omnetpp;
 using namespace quisp::messages;
 
@@ -142,7 +142,14 @@ void Router::handleMessage(cMessage *msg) {
   } else if (dest_addr == my_address && dynamic_cast<OspfPacket *>(msg)) {
     send(pk, "rdPort$o");
     return;
+  } else if (dest_addr == my_address && dynamic_cast<QSDCSynAck *>(msg)) {
+    send(pk, "toApp");
+    return;
+  } else if (dest_addr == my_address && dynamic_cast<QSDCBSMResult *>(msg)) {
+    send(pk, "toApp");
+    return;
   }
+  
 
   // RoutingDaemon sends hello packet without desination specified
   if (dest_addr == unidentified_destination && dynamic_cast<OspfHelloPacket *>(msg)) {
