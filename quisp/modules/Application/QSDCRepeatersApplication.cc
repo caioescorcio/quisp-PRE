@@ -46,8 +46,17 @@ static const char* SELF_GENERATE_PAIRS = "SELF_GENERATE_PAIRS";
 static const char* SELF_WAIT_FOR_PAIRS = "SELF_WAIT_FOR_PAIRS";
 static const char* SELF_RECEPTION_TIMEOUT = "SELF_RECEPTION_TIMEOUT";
 static const char* SELF_SEND_PHOTON = "SELF_SEND_PHOTON";
-
 static const char* ACK_RECEIVED_PHOTON = "ACK_RECEIVED_PHOTON";
+
+// Protocol messages
+static const char* SELF_QSDC_PREPARE = "SELF_QSDC_PREPARE";
+static const char* QSDC_COMM_START = "QSDC_COMM_START";
+static const char* QSDC_COMM_READY = "QSDC_COMM_READY";
+static const char* QSDC_COMM_SYNC = "QSDC_COMM_SYNC";
+static const char* QSDC_QUBIT_RECEIVED = "QSDC_QUBIT_RECEIVED";
+static const char* QSDC_COMM_END = "QSDC_COMM_END";
+
+
 
 void QSDCRepeatersApplication::initialize() {
     initializeLogger(provider);
@@ -80,15 +89,70 @@ void QSDCRepeatersApplication::initialize() {
     is_bob              = par("is_bob").boolValue();
     is_repeater         = par("is_repeater").boolValue();
     is_server           = par("is_server").boolValue();
-    // checkup for starting communication
-    //is_ready_for_qsdc   = par("is_ready_for_qsdc").boolValue(); 
-
     // test variable to make the testing process easier
     is_test     = par("is_test").boolValue();
-    if (is_test) {
-        scheduleAt(simTime(), new cMessage(SELF_SEND_PHOTON));
+
+    
+    // Read NED parameters
+    if (hasPar("total_qubits_to_send")) {
+        total_qubits_to_send = par("total_qubits_to_send").intValue();
+    } else {
+        total_qubits_to_send = 10; // Default fallback
+    }
+
+    if (is_server) {
+        // Trigger the FSM instead of the old 'is_test' blind send
+        scheduleAt(simTime(), new cMessage(SELF_QSDC_PREPARE));
     }
 }
+
+void QSDCRepeatersApplication::sendNextQubitPair() {
+    QLOG("[SERVER] Emitting Qubit Pair Index: " << current_qubit_index);
+    
+    // Reset flags for the next round
+    alice_received_current = false;
+    bob_received_current = false;
+
+    auto qubit_pair = generateEntangledPairs(1, "qnic", 1, BellState::PsiMinus);
+    if(qubit_pair.empty()) {
+        QLOG("[SERVER] ERROR: Quantum Memory Exhaustion. Cannot generate pair.");
+        return; 
+    }
+
+    auto* photon_left = new quisp::messages::PhotonicQubit("SERVER_PHOTON_L");
+    photon_left->setQubitRef(qubit_pair[0].qubit_1->getBackendQubitRef());
+    photon_left->addPar("sequence_number") = current_qubit_index;
+    photon_left->addPar("direction") = "left";
+
+    auto* photon_right = new quisp::messages::PhotonicQubit("SERVER_PHOTON_R");
+    photon_right->setQubitRef(qubit_pair[0].qubit_2->getBackendQubitRef());
+    photon_right->addPar("sequence_number") = current_qubit_index;
+    photon_right->addPar("direction") = "right";
+
+    send(photon_left, "toQuantum_l");
+    send(photon_right, "toQuantum_r");
+}
+
+void QSDCRepeatersApplication::sendClassicalMessage(int dest_addr, const char* msg_type, const char* msg_name, int seq_num) {
+    auto* pkt = new QSDCSynAck(msg_name);
+    pkt->setSrcAddr(my_address);
+    pkt->setDestAddr(dest_addr);
+    pkt->setName(msg_type);
+    
+    if (is_alice) pkt->addPar("from") = "alice";
+    else if (is_bob) pkt->addPar("from") = "bob";
+    else if (is_server) pkt->addPar("from") = "server";
+    
+    if (seq_num != -1) {
+        pkt->addPar("index") = seq_num;
+    }
+    QLOG("[MESSAGE] Sending ClassicalMessage " << msg_name << " to " << ((dest_addr == 0) ? "Alice" : (dest_addr == 4) ? "Bob" : "Server"));
+    
+    send(pkt, "toRouter");
+}
+
+
+
 
 void QSDCRepeatersApplication::protocolInit() {
     // override the standard connection manager for testing the physical layer swap
@@ -256,21 +320,21 @@ omnetpp::cModule* QSDCRepeatersApplication::getQNIC(const char* qnic_type, int q
 }
 
 void QSDCRepeatersApplication::handleIncomingPhotonAtEndNode(quisp::messages::PhotonicQubit* photon) {
-    QLOG("[TEST] Processing Photon to perform QSDC...");
-    QLOG("[TEST] Sending confirmation to Server.");
+    int seq_num = (int)photon->par("sequence_number").longValue();
+    QLOG("[ENDNODE] Received PhotonicQubit sequence: " << seq_num);
     
     if (is_alice || is_bob) {
-        auto* rcv_photon_pkt = new QSDCSynAck("ACK_RECEIVED_PHOTON");
-        rcv_photon_pkt->setSrcAddr(my_address);
-        rcv_photon_pkt->setDestAddr(2); // Hardcoded Server address
+        // extract the backend state tracking reference
+        auto* backend_qubit = const_cast<quisp::backends::IQubit*>(photon->getQubitRef());
         
-        // Use a ternary to assign the parameter string cleanly
-        rcv_photon_pkt->addPar("from") = is_alice ? "alice" : "bob";
+        // store in local buffer
+        received_qubits.push_back(backend_qubit);
         
-        send(rcv_photon_pkt, "toRouter");
+        // acknowledge receipt to the Server
+        sendClassicalMessage(2, QSDC_QUBIT_RECEIVED, "QSDC_QUBIT_RECEIVED", seq_num); // 2 is server
     }
     
-    // CRITICAL: Deallocate the absorbed photon to release memory back to OMNeT++
+    // delete OMNeT++ envelope, backend quantum state is preserved in received_qubits
     delete photon; 
 }
 
@@ -294,33 +358,26 @@ void QSDCRepeatersApplication::handleIncomingPhotonAtRepeater(quisp::messages::P
     auto* incoming_qubit = const_cast<quisp::backends::IQubit*>(photon->getQubitRef());
 
 
-    
-    //TODO
-    //int dst_addr = par("dst_addr").intValue();
-    int dst_addr = -1; //hardcoded bob_addr
+    // If the photon is flowing "left" (towards Alice), the repeater sends BSM results to Alice.
+    // If the photon is flowing "right" (towards Bob), the repeater sends BSM results to Bob.
+    int dst_addr = (photon_direction == "left") ? par("alice_address").intValue() : par("bob_address").intValue();
 
 
 
     // step 2: entanglement swap with the incoming bit 
     measureBellStateAndSend(incoming_qubit, local_half, dst_addr, seq_num);
 
-    // free the local qubit memory so it can be reused in future cycles
     local_half->setFree(true);
 
-    // step 3: send the remaining bit to the next repeater or module
     auto* next_photon = new quisp::messages::PhotonicQubit("FORWARDED_PHOTON");
     next_photon->setQubitRef(remote_half->getBackendQubitRef());
-    
-    // pass original metadata forward
     next_photon->addPar("src_addr") = my_address;
     next_photon->addPar("qubit_index") = new_pairs[0].qi_2;
     next_photon->addPar("sequence_number") = seq_num;
 
-    if (photon_direction == "left")
-        send(next_photon, "toQuantum_l");
-    if (photon_direction == "right")
-        send(next_photon, "toQuantum_r");
-    // clean up 
+    if (photon_direction == "left") send(next_photon, "toQuantum_l");
+    if (photon_direction == "right") send(next_photon, "toQuantum_r");
+    
     delete photon;
 }
 
@@ -332,7 +389,7 @@ int QSDCRepeatersApplication::eigenToInt(quisp::backends::abstract::EigenvalueRe
 
 
 void QSDCRepeatersApplication::handleMessage(cMessage *msg) {
-
+    QLOG("[MESSAGE] New message received in " << (is_alice ? "Alice" : is_bob ? "Bob" : "Server"));
     if (auto* photon = dynamic_cast<quisp::messages::PhotonicQubit*>(msg)) {
         if (is_repeater) {
             QLOG("[TEST] Photons arrived at Repeater...");
@@ -352,7 +409,94 @@ void QSDCRepeatersApplication::handleMessage(cMessage *msg) {
         auto* bsm_msg = check_and_cast<QSDCBSMResult*>(msg);
         int seq_num = bsm_msg->getSequenceNum();
         int bsm_outcome = bsm_msg->getBsmOutcome();
-        
+        delete msg;
+        return;
+    }
+
+    // FSM messages
+    if (strcmp(msg->getName(), SELF_QSDC_PREPARE) == 0) {
+        QLOG("[SERVER] Initializing QSDC Protocol. Requesting EndNode Readiness.");
+        sendClassicalMessage(0, QSDC_COMM_START, "QSDC_COMM_START"); //0 is alice 4 is bob
+        sendClassicalMessage(4, QSDC_COMM_START, "QSDC_COMM_START");
+        delete msg;
+        return;
+    }
+
+    if (strcmp(msg->getName(), QSDC_COMM_START) == 0) {
+        QLOG("[TEST] Incomming QSDC_COMM_START");
+        if (is_repeater) {
+            QLOG("[REPEATER] Received a Classical message to repeat.");
+            send(msg, "toRouter");
+            delete(msg);
+            return;
+        }
+
+        QLOG("[" << (is_alice ? "ALICE" : "BOB") << "] Received Start. Sending Ready.");
+        sendClassicalMessage(2, QSDC_COMM_READY, "QSDC_COMM_READY"); //2 is server
+        delete(msg);
+        return;
+    }
+
+
+    if (auto* pkt = dynamic_cast<quisp::messages::QSDCSynAck*>(msg)) {
+
+        if (is_repeater) {
+            QLOG("[REPEATER] Received a Classical message to repeat.");
+            send(msg, "toRouter");
+            delete(msg);
+            return;
+        }
+
+        std::string msg_type = pkt->getName();
+        std::string from = pkt->par("from").stringValue();
+
+
+         if (msg_type == QSDC_COMM_SYNC) {
+            QLOG("[" << (is_alice ? "ALICE" : "BOB") << "] Received Sync. Expecting qubits.");
+            received_qubits.clear(); // Clear buffer for new session
+        }
+        else if (msg_type == QSDC_COMM_END) {
+            QLOG("[" << (is_alice ? "ALICE" : "BOB") << "] Received End. Protocol Complete. Buffered qubits: " << received_qubits.size());
+        }
+
+        // Server Logic
+        else if (is_server && msg_type == QSDC_COMM_READY) {
+            if (from == "alice") alice_ready = true;
+            if (from == "bob") bob_ready = true;
+
+            if (alice_ready && bob_ready) {
+                QLOG("[SERVER] Both nodes ready. Sending Sync and starting Qubit 0.");
+                sendClassicalMessage(0, QSDC_COMM_SYNC, "QSDC_COMM_SYNC"); // 0 is alice 4 is bob
+                sendClassicalMessage(4, QSDC_COMM_SYNC, "QSDC_COMM_SYNC");
+                current_qubit_index = 0;
+                sendNextQubitPair();
+            }
+        }
+        else if (is_server && msg_type == QSDC_QUBIT_RECEIVED) {
+            int rcv_index = (int)pkt->par("index").longValue();
+            
+            // Ensure we are tracking the correct index
+            if (rcv_index == current_qubit_index) {
+                if (from == "alice") alice_received_current = true;
+                if (from == "bob") bob_received_current = true;
+
+                if (alice_received_current && bob_received_current) {
+                    QLOG("[SERVER] Qubit " << current_qubit_index << " synchronized at both ends.");
+
+                    current_qubit_index++;
+
+                    if (current_qubit_index < total_qubits_to_send) {
+                        sendNextQubitPair();
+                    } else {
+                        QLOG("[SERVER] Transmission Complete. Sending END signal.");
+                        sendClassicalMessage(0, QSDC_COMM_END, "Comm_End"); // 0 is alice 4 is bob
+                        sendClassicalMessage(4, QSDC_COMM_END, "Comm_End");
+                    }
+                }
+            } else {
+                QLOG("[SERVER] Received out-of-sync ACK index: " << rcv_index);
+            }
+        }
 
         delete msg;
         return;

@@ -73,7 +73,25 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     bool is_repeater    = false;
     bool is_server      = false;
     bool is_test        = false;
+
+
+    // Protocol parameters
+    int total_qubits_to_send = 0;
+    int current_qubit_index = 0;
+    // HARDCODED addresses
+    int server_address = 2; 
+    int alice_address = 0;
+    int bob_address = 1;
+
+    // FSM data
+    bool alice_ready = false;
+    bool bob_ready = false;
+    bool alice_received_current = false;
+    bool bob_received_current = false;
     //bool is_ready_for_qsdc = false;
+
+    // End node quantum memory buffer
+    std::vector<quisp::backends::IQubit*> received_qubits;
 
     utils::ComponentProvider provider;
     // change variables names
@@ -139,6 +157,8 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     void handleIncomingPhotonAtRepeater(quisp::messages::PhotonicQubit* photon);
     void handleIncomingPhotonAtEndNode(quisp::messages::PhotonicQubit* photon);
     int eigenToInt(quisp::backends::abstract::EigenvalueResult r);
+    void sendNextQubitPair();
+    void sendClassicalMessage(int dest_addr, const char* msg_type, const char* msg_name, int seq_num = -1);
     
     // OMNeT specifics
     void initialize() override;

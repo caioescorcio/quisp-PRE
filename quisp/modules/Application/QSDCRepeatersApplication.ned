@@ -9,6 +9,14 @@ simple QSDCRepeatersApplication
     bool is_repeater = default(false);
     bool is_server = default(false);
     bool is_test = default(false);
+    
+    int total_qubits_to_send = default(10);
+    
+    // Define exact routing addresses for your topology
+    int server_address = default(2);
+    int alice_address = default(0);
+    int bob_address = default(4);
+
     @display("i=block/app");
     int number_of_bellpair;
     int bob_addr = default(1);
