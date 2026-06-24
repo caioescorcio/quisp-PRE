@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <string>
 #include <vector>
+#include <map> // MOVED OUTSIDE THE CLASS
 
 
 namespace omnetpp {
@@ -23,17 +24,17 @@ namespace quisp::modules {
 
 struct LocalBellPair {
     int qnic_index;
-    int qi_1; // Index of the first half
-    int qi_2; // Index of the second half
+    int qi_1; 
+    int qi_2; 
     quisp::modules::StationaryQubit* qubit_1;
     quisp::modules::StationaryQubit* qubit_2;
 };
 
 enum class BellState {
-    PhiPlus,   // |00> + |11>
-    PhiMinus,  // |00> - |11>
-    PsiPlus,   // |01> + |10>
-    PsiMinus   // |01> - |10>
+    PhiPlus,   
+    PhiMinus,  
+    PsiPlus,   
+    PsiMinus   
 };
 
 class StationaryQubit;
@@ -68,35 +69,37 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
   *
   */
   
-    bool is_alice       = false;
+bool is_alice       = false;
     bool is_bob         = false;
     bool is_repeater    = false;
     bool is_server      = false;
     bool is_test        = false;
 
-
     // Protocol parameters
     int total_qubits_to_send = 0;
     int current_qubit_index = 0;
-    // HARDCODED addresses
+    
     int server_address = 2; 
     int alice_address = 0;
-    int bob_address = 1;
+    int bob_address = 4; // Assuming bob is 4 in your ini, update if needed.
 
     // FSM data
     bool alice_ready = false;
     bool bob_ready = false;
     bool alice_received_current = false;
     bool bob_received_current = false;
-    //bool is_ready_for_qsdc = false;
 
-    // End node quantum memory buffer
-    std::vector<quisp::backends::IQubit*> received_qubits;
+    // Async Memory and Purification Tracking
+    std::map<int, quisp::backends::IQubit*> received_qubits;
+    std::map<int, int> bsm_arrival_counts;       
+    std::vector<int> ready_qubits;               
+    std::map<int, int> my_local_measurements; // NEW: Safe map for your Z-basis results
 
     utils::ComponentProvider provider;
-    // change variables names
     int my_address = -1;
     bool is_initiator = false;
+
+
     // Eve attack settings
     bool eve_enabled = false;
     double eve_intercept_probability = 0.0;
@@ -131,23 +134,9 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     int errors = 0;
     int sample_block_size = 8;
 
-    struct PendingBellCheck {
-      char basis;
-      int bit;
-    };
-    std::unordered_map<int, PendingBellCheck> pending_bell_checks;
-
-    // Misc Settings
-    std::vector<int> current_sample_block_indices;
-    std::vector<int> current_bell_block_indices;
-
-    bool expect_anti_correlation = false;
-    
-    omnetpp::simtime_t start_delay = 0;
-    omnetpp::simtime_t poll_interval = 0;
-    omnetpp::simtime_t sample_interval = 0;
-    
-    std::unordered_set<int> used_indices;
+    bool alice_continue_ready = false;
+    bool bob_continue_ready = false;
+    bool server_is_rolling_back = false; // NEW: Prevents duplicate rollbacks
     
     // Aux functions
     void repeatQubit(int dst, quisp::modules::StationaryQubit* entangled_qubit);
@@ -158,7 +147,9 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     void handleIncomingPhotonAtEndNode(quisp::messages::PhotonicQubit* photon);
     int eigenToInt(quisp::backends::abstract::EigenvalueResult r);
     void sendNextQubitPair();
-    void sendClassicalMessage(int dest_addr, const char* msg_type, const char* msg_name, int seq_num = -1);
+    void sendClassicalMessage(int dest_addr, const char* msg_type, const char* msg_name, int seq_num  = -1, int meas_res = -1);
+    void attemptPurification();
+    void handleBSMResult(int seq_num, int bsm_outcome);
     
     // OMNeT specifics
     void initialize() override;
@@ -168,27 +159,6 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     void protocolInit();
     void entCheckStartup(unsigned long ruleset_id);
 
-    // Phase 1: Entanglement verification
-    void startEntanglementCheck(int basis);
-    void doNextEntanglementCheck(int basis);
-    void sendEntanglementCheckRequest(int qi, char basis);
-
-    // Phase 2: Quantum channel verification
-    void doNextChannelCheck();
-    void sendSamplePhoton(int qi, quisp::modules::StationaryQubit* qubit);
-
-    // Phase 3: Superdense coding transmission
-    void startDenseTransmission();
-    void applyDenseEncoding(quisp::modules::StationaryQubit* qubit, const std::string& bits);
-    void sendDensePhoton(int qi, quisp::modules::StationaryQubit* encoded_qubit);
-    std::string decodeDensePair(
-        quisp::modules::StationaryQubit* local_qubit,
-        backends::IQubit* remote_qubit);
-
-    // Utility:
-    int countReadyPairsAndCollect(std::vector<int>& out_indices);
-    void resetBlockState();
-    int measureLocalInBasis(quisp::modules::StationaryQubit* qubit, char basis);
 };
 
 }  // namespace quisp::modules

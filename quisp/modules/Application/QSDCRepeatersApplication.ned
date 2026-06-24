@@ -10,7 +10,9 @@ simple QSDCRepeatersApplication
     bool is_server = default(false);
     bool is_test = default(false);
     
-    int total_qubits_to_send = default(10);
+    int total_qubits_to_send = default(20);
+
+    int expected_bsms = default(1);
     
     // Define exact routing addresses for your topology
     int server_address = default(2);
