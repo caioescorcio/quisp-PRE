@@ -47,47 +47,21 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
   ~QSDCRepeatersApplication() override {}
   
   protected:
-  
-  // Functions:
-  // Protocol:
-  /*
-  * Test network connections
-  * Server generates X entangled pairs in the phase psi- (idk if quisp makes phi+ naturally)
-  * Server sends the bits through the network with repeaters etc
-  *   hoping that quisp do it automatically
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  *
-  */
+
   
     int expected_bsms_count = 0;
 
-    // Add a tracker for cumulative Pauli corrections
+
     struct PauliTracker {
         bool apply_x = false;
         bool apply_z = false;
     };
-    std::map<int, std::vector<quisp::modules::StationaryQubit*>> server_emitted_qubits;
-    std::map<int, int> buffered_alice_bsms;
-    // Map sequence number to its cumulative Pauli corrections
-    std::map<int, PauliTracker> cumulative_corrections;
     bool is_alice       = false;
     bool is_bob         = false;
     bool is_repeater    = false;
     bool is_server      = false;
     bool is_test        = false;
-
+    
     // Protocol parameters
     int total_qubits_to_send = 0;
     int current_qubit_index = 0;
@@ -95,25 +69,27 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     int server_address = 2; 
     int alice_address = 0;
     int bob_address = 4; // Assuming bob is 4 in your ini, update if needed.
-
+    
     // FSM data
     bool alice_ready = false;
     bool bob_ready = false;
     bool alice_received_current = false;
     bool bob_received_current = false;
-
+    
     // Async Memory and Purification Tracking
     std::map<int, quisp::backends::IQubit*> received_qubits;
     std::map<int, int> bsm_arrival_counts;       
     std::vector<int> ready_qubits;               
     std::map<int, int> my_local_measurements; // NEW: Safe map for your Z-basis results
+    std::map<int, std::vector<quisp::modules::StationaryQubit*>> server_emitted_qubits;
+    std::map<int, int> buffered_alice_bsms;
+    std::map<int, PauliTracker> cumulative_corrections;
+    
 
     utils::ComponentProvider provider;
     int my_address = -1;
     bool is_initiator = false;
-
-
-    // Eve attack settings
+    
     bool eve_enabled = false;
     double eve_intercept_probability = 0.0;
     unsigned long active_ruleset_id = 0;
