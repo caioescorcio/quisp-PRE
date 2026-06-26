@@ -148,6 +148,14 @@ void Router::handleMessage(cMessage *msg) {
   } else if (dest_addr == my_address && dynamic_cast<QSDCBSMResult *>(msg)) {
     send(pk, "toApp");
     return;
+  } else if (dest_addr == my_address && dynamic_cast<QSDCHopMessage*>(msg)) {
+    send(pk, "toApp"); 
+    return; 
+  } else if (dest_addr != my_address && dynamic_cast<QSDCHopMessage*>(msg)) {
+    if (strcmp(msg->getArrivalGate()->getName(), "fromQueue") == 0) {
+      send(pk, "toApp"); // Divert UP to the Repeater's Application layer
+      return;
+    } 
   }
   
 

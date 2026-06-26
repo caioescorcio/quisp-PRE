@@ -31,3 +31,8 @@ packet QSDCSynAck extends Header {
 
     int expected_bsms        @setter(setExpectedBSMs)        @getter(getExpectedBSMs);
 }
+
+
+packet QSDCHopMessage extends Header {
+    int qsdc_hop_count         @setter(setQSDCHopCount)       @getter(getQSDCHopCount);
+}
