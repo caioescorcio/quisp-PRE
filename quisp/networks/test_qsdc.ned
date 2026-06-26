@@ -7,7 +7,7 @@ import modules.SharedResource.SharedResource;
 import channels.ClassicalChannel;
 import channels.QuantumChannel;
 
-network qsdc_network
+network test_qsdc_network
 {
     parameters:
         // Expanded the background width slightly to fit the new node
