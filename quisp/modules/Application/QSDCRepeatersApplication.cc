@@ -91,7 +91,11 @@ void QSDCRepeatersApplication::initialize() {
     is_bob              = par("is_bob").boolValue();
     is_repeater         = par("is_repeater").boolValue();
     is_server           = par("is_server").boolValue();
-    is_test     = par("is_test").boolValue();
+    is_test             = par("is_test").boolValue();
+
+    channel_loss_rate       = par("custom_channel_loss_rate").doubleValue();
+    measurement_error_rate  = par("custom_measurement_error_rate").doubleValue();
+    gate_error_rate         = par("custom_gate_error_rate").doubleValue();
 
     
     if (hasPar("total_qubits_to_send")) {
@@ -291,6 +295,9 @@ std::vector<LocalBellPair> QSDCRepeatersApplication::generateEntangledPairs(int 
             qubit_2->gateX();
         }
 
+        applyDepolarizingNoise(qubit_1->getBackendQubitRef());
+        applyDepolarizingNoise(qubit_2->getBackendQubitRef());
+
         // Pack the physical references into the return struct
         generated_pairs.push_back({qnic_index, qi_1, qi_2, qubit_1, qubit_2});
 
@@ -299,7 +306,23 @@ std::vector<LocalBellPair> QSDCRepeatersApplication::generateEntangledPairs(int 
     return generated_pairs;
 }
 
-
+void QSDCRepeatersApplication::applyDepolarizingNoise(quisp::backends::IQubit* qubit) {
+    if (dblrand() < gate_error_rate) {
+        // Randomly choose X, Y, or Z error (33% chance each given an error occurs)
+        double err_type = dblrand();
+        if (err_type < 0.33) {
+            qubit->gateX();
+            QLOG("[ERROR INJECTION] Depolarizing noise applied: X-Gate");
+        } else if (err_type < 0.66) {
+            qubit->gateZ();
+            QLOG("[ERROR INJECTION] Depolarizing noise applied: Z-Gate");
+        } else {
+            qubit->gateX();
+            qubit->gateZ(); // Simulating Y-Gate (iY)
+            QLOG("[ERROR INJECTION] Depolarizing noise applied: Y-Gate");
+        }
+    }
+}
 
 void QSDCRepeatersApplication::measureBellStateAndSend(quisp::backends::IQubit* incoming_qubit, quisp::modules::StationaryQubit* local_qubit, int dst_addr, int seq_num) {
     if (!incoming_qubit || !local_qubit) {
@@ -462,6 +485,9 @@ void QSDCRepeatersApplication::attemptPurification() {
 
     target_qubit->gateCNOT(source_qubit);
 
+    applyDepolarizingNoise(target_qubit);
+    applyDepolarizingNoise(source_qubit);
+
     int meas_res = eigenToInt(source_qubit->measureZ());
     
     my_local_measurements[target_seq] = meas_res; 
@@ -476,6 +502,12 @@ void QSDCRepeatersApplication::attemptPurification() {
 
 
 void QSDCRepeatersApplication::handleIncomingPhotonAtEndNode(quisp::messages::PhotonicQubit* photon) {
+    if (dblrand() < channel_loss_rate) {
+        QLOG("[ERROR INJECTION] Photon lost before reaching EndNode.");
+        delete photon;
+        return;
+    }
+
     int seq_num = (int)photon->par("sequence_number").longValue();
     QLOG("[ENDNODE] Received PhotonicQubit sequence: " << seq_num);
     
@@ -490,6 +522,12 @@ void QSDCRepeatersApplication::handleIncomingPhotonAtEndNode(quisp::messages::Ph
 }
 
 void QSDCRepeatersApplication::handleIncomingPhotonAtRepeater(quisp::messages::PhotonicQubit* photon) {
+    if (dblrand() < channel_loss_rate) {
+        QLOG("[ERROR INJECTION] Photon " << photon->par("sequence_number").longValue() << " lost in channel.");
+        delete photon;
+        return; // Halt processing, simulating erasure
+    }
+
     QLOG("[TEST] Processing Photon to perform the Entanglement Swap...");
     auto new_pairs = generateEntangledPairs(1, "qnic", 1, BellState::PsiMinus);
     int seq_num = (int)photon->par("sequence_number").longValue();
@@ -526,9 +564,14 @@ void QSDCRepeatersApplication::handleIncomingPhotonAtRepeater(quisp::messages::P
 
 // Utility mapper for eigenvalues
 int QSDCRepeatersApplication::eigenToInt(quisp::backends::abstract::EigenvalueResult r) {
-    return (r == quisp::backends::abstract::EigenvalueResult::PLUS_ONE) ? +1 : -1;
-}
+    int expected_result = (r == quisp::backends::abstract::EigenvalueResult::PLUS_ONE) ? +1 : -1;
+    if (dblrand() < measurement_error_rate) {
+        QLOG("[ERROR INJECTION] Measurement error! Flipping Z-basis result.");
+        return (expected_result == +1) ? -1 : +1;
+    }
 
+    return expected_result;
+}
 
 void QSDCRepeatersApplication::encodeAndPerformQSDC() {
     std::sort(stored_purified_qubit_seqs.begin(), stored_purified_qubit_seqs.end());
@@ -640,7 +683,7 @@ void QSDCRepeatersApplication::checkAndTriggerDecoding() {
     if (buffered_alice_bsms.size() == expected_groups && expected_groups > 0) {
         decodeQSDC();
     } else {
-        QLOG("[BOB] Comm_End received, but waiting for Alice's encoding BSMs. Progress: " 
+        QLOG("[BOB] COMM_END received, but waiting for Alice's encoding BSMs. Progress: " 
              << buffered_alice_bsms.size() << " / " << expected_groups);
     }
 }
@@ -903,8 +946,8 @@ void QSDCRepeatersApplication::processQubitAck(quisp::messages::QSDCSynAck* pkt)
                     sendNextQubitPair();
                 } else {
                     QLOG("[SERVER] Transmission Complete. Sending END signal.");
-                    sendClassicalMessage(0, QSDC_COMM_END, "Comm_End"); 
-                    sendClassicalMessage(4, QSDC_COMM_END, "Comm_End");
+                    sendClassicalMessage(0, QSDC_COMM_END, "COMM_END"); 
+                    sendClassicalMessage(4, QSDC_COMM_END, "COMM_END");
                 }
             }
         } 

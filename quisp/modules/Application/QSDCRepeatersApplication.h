@@ -138,6 +138,17 @@ class QSDCRepeatersApplication : public IApplication, public Logger::LoggerBase 
     // QSDC Decoding Buffer at Bob
     std::map<int, int> alice_bsm_results; 
 
+
+    double channel_loss_rate = 0.00;
+    double measurement_error_rate = 0.0;
+    double gate_error_rate = 0.0;
+
+    // Helper for stochastic gate errors
+    void applyDepolarizingNoise(quisp::backends::IQubit* qubit);
+    
+    omnetpp::cMessage* timeout_msg = nullptr;
+    double timeout_interval = 0.05;
+    
     // New internal methods
     void setMessage();
     void sendMessageSetup();

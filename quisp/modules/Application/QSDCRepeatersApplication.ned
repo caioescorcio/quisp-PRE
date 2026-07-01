@@ -10,6 +10,10 @@ simple QSDCRepeatersApplication
     bool is_server = default(false);
     bool is_test = default(false);
     
+    double custom_channel_loss_rate = default(0.1);
+    double custom_measurement_error_rate = default(0.0);
+    double custom_gate_error_rate = default(0.0);
+
     int total_qubits_to_send = default(20);
     string secret_message = default("Hello World!");
     int expected_bsms = default(1);
